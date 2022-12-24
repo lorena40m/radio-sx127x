@@ -5,9 +5,9 @@
 
 use core::fmt::Debug;
 
-use embedded_hal::delay::blocking::{DelayUs};
-use embedded_hal::digital::blocking::{OutputPin, InputPin};
-use embedded_hal::spi::blocking::{Transactional, TransferInplace, Write};
+use embedded_hal::delay::{DelayUs};
+use embedded_hal::digital::{OutputPin, InputPin};
+use embedded_hal::spi::{SpiBus, SpiDevice, ErrorType as SpiErrorType};
 
 /// HAL trait for radio interaction, may be generic over SPI or UART connections
 pub trait Hal {
@@ -116,17 +116,8 @@ pub enum HalError<Spi, Pin, Delay> {
     Delay(Delay),
 }
 
-/// Helper SPI trait to tie errors together (no longer required next HAL release)
-pub trait SpiBase: TransferInplace<u8, Error = <Self as SpiBase>::Error> + Write<u8, Error = <Self as SpiBase>::Error> + Transactional<u8, Error = <Self as SpiBase>::Error> {
-    type Error;
-}
-
-impl <T: TransferInplace<u8, Error = E> + Write<u8, Error = E> + Transactional<u8, Error = E>, E> SpiBase for T {
-    type Error = E;
-}
-
 /// Spi base object defined interface for interacting with radio via SPI
-pub struct Base <Spi: SpiBase, Cs: OutputPin, Busy: InputPin, Ready: InputPin, Sdn: OutputPin, Delay: DelayUs> {
+pub struct Base <Spi: SpiDevice, Cs: OutputPin, Busy: InputPin, Ready: InputPin, Sdn: OutputPin, Delay: DelayUs> {
     pub spi: Spi,
     pub cs: Cs,
     pub busy: Busy,
@@ -138,8 +129,9 @@ pub struct Base <Spi: SpiBase, Cs: OutputPin, Busy: InputPin, Ready: InputPin, S
 /// Implement HAL for base object
 impl<Spi, Cs, Busy, Ready, Sdn, PinError, Delay> Hal for Base<Spi, Cs, Busy, Ready, Sdn, Delay>
 where
-    Spi: SpiBase,
-    <Spi as SpiBase>::Error: Debug + 'static,
+    Spi: SpiDevice,
+    <Spi as SpiDevice>::Bus: SpiBus<u8>,
+    <Spi as SpiErrorType>::Error: Debug + 'static,
     
     Cs: OutputPin<Error=PinError>,
     Busy: InputPin<Error=PinError>,
@@ -150,7 +142,7 @@ where
     Delay: DelayUs,
     <Delay as DelayUs>::Error: Debug + 'static,
 {
-    type Error = HalError<<Spi as SpiBase>::Error, PinError, <Delay as DelayUs>::Error>;
+    type Error = HalError<<Spi as SpiErrorType>::Error, PinError, <Delay as DelayUs>::Error>;
 
     /// Reset the radio
     fn reset(&mut self) -> Result<(), Self::Error> {
@@ -201,7 +193,7 @@ where
     fn prefix_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(HalError::Pin)?;
 
-        let r = self.spi.write(prefix).map(|_| self.spi.transfer_inplace(data));
+        let r = self.spi.write(prefix).map(|_| self.spi.transfer_in_place(data));
 
         self.cs.set_high().map_err(HalError::Pin)?;
 

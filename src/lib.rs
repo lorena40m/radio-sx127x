@@ -12,12 +12,12 @@
 use core::convert::TryFrom;
 use core::fmt::Debug;
 
-use base::{Base, SpiBase, HalError};
+use base::{Base, HalError};
 use log::{trace, debug, warn};
 
-use embedded_hal::spi::{Mode as SpiMode, Phase, Polarity};
-use embedded_hal::delay::blocking::{DelayUs};
-use embedded_hal::digital::blocking::{InputPin, OutputPin};
+use embedded_hal::spi::{Mode as SpiMode, Phase, Polarity, SpiBus, SpiDevice, ErrorType as SpiErrorType};
+use embedded_hal::delay::{DelayUs};
+use embedded_hal::digital::{InputPin, OutputPin};
 
 use radio::{Power as _, State as _};
 
@@ -104,8 +104,9 @@ impl<Spi, CsPin, BusyPin, ReadyPin, SdnPin, PinError, Delay>
         Base<Spi, CsPin, BusyPin, ReadyPin, SdnPin, Delay>,
     >
 where
-    Spi: SpiBase,
-    <Spi as SpiBase>::Error: Debug,
+    Spi: SpiDevice,
+    <Spi as SpiDevice>::Bus: SpiBus<u8>,
+    <Spi as SpiErrorType>::Error: Debug,
 
     CsPin: OutputPin<Error = PinError>,
     BusyPin: InputPin<Error = PinError>,
@@ -125,7 +126,7 @@ where
         sdn: SdnPin,
         delay: Delay,
         config: &Config,
-    ) -> Result<Self, Error<HalError<<Spi as SpiBase>::Error, PinError, <Delay as DelayUs>::Error>>> {
+    ) -> Result<Self, Error<HalError<<Spi as SpiErrorType>::Error, PinError, <Delay as DelayUs>::Error>>> {
         // Create SpiWrapper over spi/cs/busy/ready/reset
         let base = Base{spi, cs, sdn, busy, ready, delay};
 
