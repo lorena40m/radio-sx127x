@@ -18,7 +18,7 @@ util = ["structopt", "driver-pal", "driver-pal/hal", "simplelog", "humantime"]
 embedded-hal = "1.0.0-alpha.9"
 libc = "0.2"
 log = { version = "0.4" }
-bitflags = "1.0"
+bitflags = "2.9"
 
 driver-pal = { version = "0.8.0-alpha.6", default_features = false, optional=true }
 
